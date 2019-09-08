@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build assignment 1",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-Wall",
+        "-pedantic",
+        "-std=c11",
+        "traffic_lights_template.c",
+        "-o",
+        "solution",
+        "-lpthread"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

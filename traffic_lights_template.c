@@ -14,20 +14,26 @@ typedef struct mini_controller_object
     int id;
     int time_green;
     int min_interval;
+    char direction[11];
 } mini_cntrl_t;
 
 typedef struct vehicle_object
 {
     int id;
     char direction[4];
+    int min_interval;
 } vehicle_t;
 
 void *mini_controller_routine(void *);
 void *vehicle_routine(void *);
 
 //declare global mutex and condition variables
-pthread_mutex_t intersection_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t ns_cond, ew_cond, right_cond;
+pthread_mutex_t intersection_mutex, n2s_mutex, s2n_mutex, e2w_mutex, w2e_mutex, n2w_mutex, s2e_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t ns_cntrl_cond, ew_cntrl_cond, right_cntrl_cond;
+pthread_cond_t n2s_vhcl_cond, e2w_vhcl_cond, n2w_vhcl_cond;
+pthread_cond_t s2n_vhcl_cond, w2e_vhcl_cond, s2e_vhcl_cond;
+bool n2s, s2n, e2w, w2e, n2w, s2e = false;
+
 // you need to add something here
 
 int main(int argc, char **argv)
@@ -45,25 +51,60 @@ int main(int argc, char **argv)
     // you need to add something here
 
     // Initialize mutex and condition variables
-    rc = pthread_cond_init(&ns_cond, NULL);
+    rc = pthread_cond_init(&ns_cntrl_cond, NULL);
     if (rc)
     {
-        printf("Error in creation of ns cond, %d\n", rc);
+        printf("Error in creation of ns mini controller cond, %d\n", rc);
         exit(1);
     }
-    rc = pthread_cond_init(&ew_cond, NULL);
+    rc = pthread_cond_init(&ew_cntrl_cond, NULL);
     if (rc)
     {
-        printf("Error in creation of ew cond, %d\n", rc);
+        printf("Error in creation of ew mini controller cond, %d\n", rc);
         exit(1);
     }
-    rc = pthread_cond_init(&right_cond, NULL);
+    rc = pthread_cond_init(&right_cntrl_cond, NULL);
     if (rc)
     {
-        printf("Error in creation of right cond, %d\n", rc);
+        printf("Error in creation of right mini controller cond, %d\n", rc);
         exit(1);
     }
-
+    rc = pthread_cond_init(&e2w_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of e2w vehicle cond, %d\n", rc);
+        exit(1);
+    }
+    rc = pthread_cond_init(&n2w_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of n2w vehicle cond, %d\n", rc);
+        exit(1);
+    }
+    rc = pthread_cond_init(&n2s_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of n2s vehicle cond, %d\n", rc);
+        exit(1);
+    }
+    rc = pthread_cond_init(&s2n_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of s2n vehicle cond, %d\n", rc);
+        exit(1);
+    }
+    rc = pthread_cond_init(&w2e_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of w2e vehicle cond, %d\n", rc);
+        exit(1);
+    }
+    rc = pthread_cond_init(&s2e_vhcl_cond, NULL);
+    if (rc)
+    {
+        printf("Error in creation of s2e vehicle cond, %d\n", rc);
+        exit(1);
+    }
     // you need to add something here if necessary
 
     //allocate memory for mini_controllers
@@ -109,13 +150,13 @@ int main(int argc, char **argv)
     vehicle = malloc(n_vehicles * sizeof(vehicle_t));
     if (vehicle == NULL)
     {
-        fprintf(stderr, "memory error in vehicles");
+        fprintf(stderr, "memory error in vehicle array");
         exit(1);
     }
     vehicle_thrds_id = malloc(n_vehicles * sizeof(pthread_t));
     if (vehicle_thrds_id == NULL)
     {
-        fprintf(stderr, "mem error\n");
+        fprintf(stderr, "mem error in vhcl thrd id array\n");
         exit(1);
     }
     // you need to add something here
@@ -124,6 +165,19 @@ int main(int argc, char **argv)
     for (int k = 0; k < 3; k++)
     {
         mini_controller[k].id = k;
+        switch (k)
+        {
+        case 0:
+            strcpy(mini_controller[k].direction, "(n2s, s2n)");
+            break;
+        case 1:
+            strcpy(mini_controller[k].direction, "(e2w, w2e)");
+            break;
+        case 2:
+            strcpy(mini_controller[k].direction, "(n2w, s2e)");
+            break;
+        }
+
         rc = pthread_create(&mini_controller_thrds_id[k], NULL, mini_controller_routine, (void *)&mini_controller[k]);
         if (rc)
         {
@@ -135,35 +189,63 @@ int main(int argc, char **argv)
 
     //create vehicles threads
     srand(time(0));
+    int prevDir = -1;
+    int n2s_id = 0;
+    int s2n_id = 0;
+    int e2w_id = 0;
+    int w2e_id = 0;
+    int n2w_id = 0;
+    int s2e_id = 0;
     for (int k = 0; k < n_vehicles; k++)
     {
-        sleep((int)rand() % vehicle_rate);
-        vehicle[k].id = k;
         int direction = (int)rand() % 6;
-        if (direction == 0)
+
+        if (direction == prevDir)
         {
+            vehicle[k].min_interval = min_interval + 1;
+            sleep((int)rand() % vehicle_rate + 1);
+        }
+        else
+        {
+            vehicle[k].min_interval = min_interval;
+            sleep((int)rand() % vehicle_rate);
+        }
+        prevDir = direction;
+
+        switch (direction)
+        {
+        case 0:
             strcpy(vehicle[k].direction, "n2s");
-        }
-        else if (direction == 1)
-        {
+            vehicle[k].id = n2s_id;
+            n2s_id++;
+            break;
+        case 1:
             strcpy(vehicle[k].direction, "s2n");
-        }
-        else if (direction == 2)
-        {
+            vehicle[k].id = s2n_id;
+            s2n_id++;
+            break;
+        case 2:
             strcpy(vehicle[k].direction, "w2e");
-        }
-        else if (direction == 3)
-        {
+            vehicle[k].id = w2e_id;
+            w2e_id++;
+            break;
+        case 3:
             strcpy(vehicle[k].direction, "e2w");
+            vehicle[k].id = e2w_id;
+            e2w_id++;
+            break;
+        case 4:
+            strcpy(vehicle[k].direction, "s2e");
+            vehicle[k].id = s2e_id;
+            s2e_id++;
+            break;
+        case 5:
+            strcpy(vehicle[k].direction, "n2w");
+            vehicle[k].id = n2w_id;
+            n2w_id++;
+            break;
         }
-        else if (direction == 4)
-        {
-            strcpy(vehicle[k].direction, "s2w");
-        }
-        else if (direction == 5)
-        {
-            strcpy(vehicle[k].direction, "w2n");
-        }
+
         rc = pthread_create(&vehicle_thrds_id[k], NULL, vehicle_routine, (void *)&vehicle[k]);
         if (rc)
         {
@@ -194,16 +276,26 @@ int main(int argc, char **argv)
 
     //destroy mutex and condition variable objects
     pthread_mutex_destroy(&intersection_mutex);
-    pthread_cond_destroy(&ns_cond);
-    pthread_cond_destroy(&ew_cond);
-
-    pthread_cond_destroy(&right_cond);
+    pthread_mutex_destroy(&n2s_mutex);
+    pthread_mutex_destroy(&s2n_mutex);
+    pthread_mutex_destroy(&e2w_mutex);
+    pthread_mutex_destroy(&w2e_mutex);
+    pthread_mutex_destroy(&n2w_mutex);
+    pthread_mutex_destroy(&s2e_mutex);
+    pthread_cond_destroy(&ns_cntrl_cond);
+    pthread_cond_destroy(&ew_cntrl_cond);
+    pthread_cond_destroy(&n2s_vhcl_cond);
+    pthread_cond_destroy(&s2n_vhcl_cond);
+    pthread_cond_destroy(&e2w_vhcl_cond);
+    pthread_cond_destroy(&w2e_vhcl_cond);
+    pthread_cond_destroy(&n2w_vhcl_cond);
+    pthread_cond_destroy(&s2e_vhcl_cond);
 
     // you need to add something here
 
     printf("Main thread: There are no more vehicles to serve. The simulation will end now.\n");
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 void *mini_controller_routine(void *arg)
@@ -212,43 +304,90 @@ void *mini_controller_routine(void *arg)
     // you need to implement mini_controller routine
     mini_cntrl_t *mini_controller;
     mini_controller = (mini_cntrl_t *)arg;
-    printf("MC %d: Start.\n", mini_controller->id);
+    printf("Traffic light mini controller %s: Initialization complete. I am ready.\n", mini_controller->direction);
     while (1)
     {
-        if (mini_controller->id == 1)
+        switch (mini_controller->id)
         {
+        case 1:
             pthread_mutex_lock(&intersection_mutex);
-            pthread_cond_wait(&ew_cond, &intersection_mutex);
-        }
-        else if (mini_controller->id == 2)
-        {
+            pthread_cond_wait(&ew_cntrl_cond, &intersection_mutex);
+            break;
+        case 2:
             pthread_mutex_lock(&intersection_mutex);
-            pthread_cond_wait(&right_cond, &intersection_mutex);
+            pthread_cond_wait(&right_cntrl_cond, &intersection_mutex);
+            break;
         }
 
-        printf("MC %d: Will change to green now.\n", mini_controller->id);
+        printf("The traffic lights %s will change to green now.\n", mini_controller->direction);
+
+        time_t startTime = time(NULL);
+        while (time(NULL) - startTime < mini_controller->time_green)
+        {
+            switch (mini_controller->id)
+            {
+            case 0:
+                pthread_mutex_lock(&n2s_mutex);
+                n2s = true;
+                pthread_cond_signal(&n2s_vhcl_cond);
+                pthread_mutex_unlock(&n2s_mutex);
+
+                pthread_mutex_lock(&s2n_mutex);
+                s2n = true;
+                pthread_cond_signal(&s2n_vhcl_cond);
+                pthread_mutex_unlock(&s2n_mutex);
+                break;
+            case 1:
+                pthread_mutex_lock(&e2w_mutex);
+                e2w = true;
+                pthread_cond_signal(&e2w_vhcl_cond);
+                pthread_mutex_unlock(&e2w_mutex);
+
+                pthread_mutex_lock(&w2e_mutex);
+                w2e = true;
+                pthread_cond_signal(&w2e_vhcl_cond);
+                pthread_mutex_unlock(&w2e_mutex);
+                break;
+            case 2:
+                pthread_mutex_lock(&n2w_mutex);
+                n2w = true;
+                pthread_cond_signal(&n2w_vhcl_cond);
+                pthread_mutex_unlock(&n2w_mutex);
+
+                pthread_mutex_lock(&s2e_mutex);
+                s2e = true;
+                pthread_cond_signal(&s2e_vhcl_cond);
+                pthread_mutex_unlock(&s2e_mutex);
+                break;
+            }
+        }
+        n2s = false;
+        s2n = false;
+        e2w = false;
+        w2e = false;
+        n2w = false;
+        s2e = false;
         pthread_mutex_unlock(&intersection_mutex);
-        sleep(mini_controller->time_green);
-        printf("MC %d: Will change to red now.\n", mini_controller->id);
+        printf("The traffic lights %s will change to red now.\n", mini_controller->direction);
         sleep(2);
-
         pthread_mutex_lock(&intersection_mutex);
-        if (mini_controller->id == 0)
+
+        switch (mini_controller->id)
         {
-            pthread_cond_signal(&ew_cond);
+        case 0:
+            pthread_cond_signal(&ew_cntrl_cond);
             pthread_mutex_unlock(&intersection_mutex);
             pthread_mutex_lock(&intersection_mutex);
-            pthread_cond_wait(&ns_cond, &intersection_mutex);
-        }
-        else if (mini_controller->id == 1)
-        {
-            pthread_cond_signal(&right_cond);
+            pthread_cond_wait(&ns_cntrl_cond, &intersection_mutex);
+            break;
+        case 1:
+            pthread_cond_signal(&right_cntrl_cond);
             pthread_mutex_unlock(&intersection_mutex);
-        }
-        else
-        {
-            pthread_cond_signal(&ns_cond);
+            break;
+        case 2:
+            pthread_cond_signal(&ns_cntrl_cond);
             pthread_mutex_unlock(&intersection_mutex);
+            break;
         }
     }
 }
@@ -261,6 +400,82 @@ void *vehicle_routine(void *arg)
     printf("Vehicle %d %s has arrived at the intersection.\n", vehicle->id, vehicle->direction);
     if (!strcmp(vehicle->direction, "n2s"))
     {
+        pthread_mutex_lock(&n2s_mutex);
+        while (!n2s)
+        {
+            pthread_cond_wait(&n2s_vhcl_cond, &n2s_mutex);
+        }
+        n2s = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+
+        pthread_mutex_unlock(&n2s_mutex);
     }
-    printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+    if (!strcmp(vehicle->direction, "s2n"))
+    {
+        pthread_mutex_lock(&s2n_mutex);
+        while (!s2n)
+        {
+            pthread_cond_wait(&s2n_vhcl_cond, &s2n_mutex);
+        }
+
+        s2n = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+        pthread_mutex_unlock(&s2n_mutex);
+    }
+    if (!strcmp(vehicle->direction, "e2w"))
+    {
+        pthread_mutex_lock(&e2w_mutex);
+        while (!e2w)
+        {
+            pthread_cond_wait(&e2w_vhcl_cond, &e2w_mutex);
+        }
+
+        e2w = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+        pthread_mutex_unlock(&e2w_mutex);
+    }
+    if (!strcmp(vehicle->direction, "w2e"))
+    {
+        pthread_mutex_lock(&w2e_mutex);
+        while (!w2e)
+        {
+            pthread_cond_wait(&w2e_vhcl_cond, &w2e_mutex);
+        }
+
+        w2e = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+        pthread_mutex_unlock(&w2e_mutex);
+    }
+    if (!strcmp(vehicle->direction, "n2w"))
+    {
+        pthread_mutex_lock(&n2w_mutex);
+        while (!n2w)
+        {
+            pthread_cond_wait(&n2w_vhcl_cond, &n2w_mutex);
+        }
+
+        n2w = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+        pthread_mutex_unlock(&n2w_mutex);
+    }
+    if (!strcmp(vehicle->direction, "s2e"))
+    {
+        pthread_mutex_lock(&s2e_mutex);
+        while (!s2e)
+        {
+            pthread_cond_wait(&s2e_vhcl_cond, &s2e_mutex);
+        }
+
+        s2e = false;
+        printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
+        sleep(vehicle->min_interval);
+        pthread_mutex_unlock(&s2e_mutex);
+    }
+
+    pthread_exit(EXIT_SUCCESS);
 }
