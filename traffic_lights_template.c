@@ -55,55 +55,55 @@ int main(int argc, char **argv)
     if (rc)
     {
         printf("Error in creation of ns mini controller cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&ew_cntrl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of ew mini controller cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&right_cntrl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of right mini controller cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&e2w_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of e2w vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&n2w_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of n2w vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&n2s_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of n2s vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&s2n_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of s2n vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&w2e_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of w2e vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     rc = pthread_cond_init(&s2e_vhcl_cond, NULL);
     if (rc)
     {
         printf("Error in creation of s2e vehicle cond, %d\n", rc);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     // you need to add something here if necessary
 
@@ -112,13 +112,13 @@ int main(int argc, char **argv)
     if (mini_controller_thrds_id == NULL)
     {
         fprintf(stderr, "mini_controlle_thrds_id out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     mini_controller = malloc(3 * sizeof(mini_cntrl_t)); //mini_controller objects
     if (mini_controller == NULL)
     {
         fprintf(stderr, "mini_controller out of memory\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // input parameters
@@ -151,13 +151,13 @@ int main(int argc, char **argv)
     if (vehicle == NULL)
     {
         fprintf(stderr, "memory error in vehicle array");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     vehicle_thrds_id = malloc(n_vehicles * sizeof(pthread_t));
     if (vehicle_thrds_id == NULL)
     {
         fprintf(stderr, "mem error in vhcl thrd id array\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     // you need to add something here
 
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
         if (rc)
         {
             fprintf(stderr, "rc from mc thread: %d\n", rc);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
     // you need to add something here
@@ -250,10 +250,9 @@ int main(int argc, char **argv)
         if (rc)
         {
             fprintf(stderr, "rc from vh thread: %d\n", rc);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
-    // you need to add something here
 
     //join and terminating threads.
     for (int k = 0; k < n_vehicles; k++)
@@ -264,15 +263,12 @@ int main(int argc, char **argv)
     {
         pthread_cancel(mini_controller_thrds_id[k]);
     }
-    // you need to add something here
 
     //deallocate allocated memory
     free(vehicle_thrds_id);
     free(mini_controller_thrds_id);
     free(vehicle);
     free(mini_controller);
-
-    // you need to add something here
 
     //destroy mutex and condition variable objects
     pthread_mutex_destroy(&intersection_mutex);
@@ -291,8 +287,6 @@ int main(int argc, char **argv)
     pthread_cond_destroy(&n2w_vhcl_cond);
     pthread_cond_destroy(&s2e_vhcl_cond);
 
-    // you need to add something here
-
     printf("Main thread: There are no more vehicles to serve. The simulation will end now.\n");
 
     exit(EXIT_SUCCESS);
@@ -300,8 +294,6 @@ int main(int argc, char **argv)
 
 void *mini_controller_routine(void *arg)
 {
-
-    // you need to implement mini_controller routine
     mini_cntrl_t *mini_controller;
     mini_controller = (mini_cntrl_t *)arg;
     printf("Traffic light mini controller %s: Initialization complete. I am ready.\n", mini_controller->direction);
@@ -394,7 +386,6 @@ void *mini_controller_routine(void *arg)
 
 void *vehicle_routine(void *arg)
 {
-    // you need to implement vehicle routine
     vehicle_t *vehicle;
     vehicle = (vehicle_t *)arg;
     printf("Vehicle %d %s has arrived at the intersection.\n", vehicle->id, vehicle->direction);
@@ -405,10 +396,10 @@ void *vehicle_routine(void *arg)
         {
             pthread_cond_wait(&n2s_vhcl_cond, &n2s_mutex);
         }
+
         n2s = false;
         printf("Vehicle %d %s is proceeding through the intersection.\n", vehicle->id, vehicle->direction);
         sleep(vehicle->min_interval);
-
         pthread_mutex_unlock(&n2s_mutex);
     }
     if (!strcmp(vehicle->direction, "s2n"))
