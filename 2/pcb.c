@@ -37,7 +37,16 @@ PcbPtr createnullPcb()
  ******************************************************/
 PcbPtr enqPcb(PcbPtr q, PcbPtr p)
 {
-    return NULL; // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE!
+    if (!q)
+    {
+        return p;
+    }
+    PcbPtr curr = q;
+    for (; curr->next != NULL; curr = curr->next)
+    {
+    }
+    curr->next = p;
+    return q;
 }
 
 /*******************************************************
@@ -49,9 +58,15 @@ PcbPtr enqPcb(PcbPtr q, PcbPtr p)
  *    NULL if queue was empty
  *    & sets new head of Q pointer in adrs at 1st arg
  *******************************************************/
-PcbPtr deqPcb(PcbPtr * hPtr)
+PcbPtr deqPcb(PcbPtr *hPtr)
 {
-    return NULL; // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE!
+    if (!hPtr || !(*hPtr))
+        return NULL;
+
+    PcbPtr curr = *hPtr;
+    *hPtr = (*hPtr)->next;
+    curr->next = NULL;
+    return curr;
 }
 
 /*******************************************************
@@ -61,24 +76,24 @@ PcbPtr deqPcb(PcbPtr * hPtr)
  *    PcbPtr of process
  *    NULL if start (restart) failed
  ******************************************************/
-PcbPtr startPcb (PcbPtr p)
+PcbPtr startPcb(PcbPtr p)
 {
     if (p->pid == 0)
     {
-        switch (1) // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE (ONE LINE ONLY)!
+        switch (p->pid = fork()) // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE (ONE LINE ONLY)!
         {
-            case -1:
-                fprintf(stderr, "FATAL: Could not fork process!\n");
-                exit(EXIT_FAILURE);
-            case 0:
-                p->pid = getpid();
-                p->status = PCB_RUNNING;
-                printPcbHdr();
-                printPcb(p);
-                fflush(stdout);
-                puts("A process should be launched here.\n"); // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE (ONE LINE ONLY)!
-                fprintf(stderr, "ALERT: You should never see me!\n");
-                exit(EXIT_FAILURE);
+        case -1:
+            fprintf(stderr, "FATAL: Could not fork process!\n");
+            exit(EXIT_FAILURE);
+        case 0:
+            p->pid = getpid();
+            p->status = PCB_RUNNING;
+            printPcbHdr();
+            printPcb(p);
+            fflush(stdout);
+            execv(p->args[0], p->args);
+            fprintf(stderr, "ALERT: You should never see me!\n");
+            exit(EXIT_FAILURE);
         }
     }
     else // YOU MAY IGNORE THIS ELSE BLOCK FOR EXERCISE 3 (YOU WILL NEED IT LATER)
@@ -98,7 +113,15 @@ PcbPtr startPcb (PcbPtr p)
  ******************************************************/
 PcbPtr suspendPcb(PcbPtr p)
 {
-    return NULL; // IGNORE THIS FUNCTION FOR NOW. YOU WILL NEED REPLACE THIS LINE IN EXERCISE 4.
+    if (!p)
+    {
+        fprintf(stderr, "ERROR: Can not suspend a NULL process\n");
+        return NULL;
+    }
+
+    kill(p->pid, SIGTSTP);
+    p->status = PCB_SUSPENDED;
+    return p;
 }
 
 /*******************************************************
@@ -110,7 +133,15 @@ PcbPtr suspendPcb(PcbPtr p)
  ******************************************************/
 PcbPtr terminatePcb(PcbPtr p)
 {
-    return NULL; // YOU NEED TO REPLACE THIS LINE WITH YOUR CODE!
+    if (!p)
+    {
+        fprintf(stderr, "ERROR: Can not terminate a NULL process\n");
+        return NULL;
+    }
+
+    kill(p->pid, SIGINT);
+    p->status = PCB_TERMINATED;
+    return p;
 }
 
 /*******************************************************
@@ -122,33 +153,34 @@ PcbPtr terminatePcb(PcbPtr p)
 PcbPtr printPcb(PcbPtr p)
 {
     printf("%7d%7d%7d%7d  ",
-        (int) p->pid, p->arrival_time, p->priority,
-            p->remaining_cpu_time);
-    switch (p->status) {
-        case PCB_UNINITIALIZED:
-            printf("UNINITIALIZED");
-            break;
-        case PCB_INITIALIZED:
-            printf("INITIALIZED");
-            break;
-        case PCB_READY:
-            printf("READY");
-            break;
-        case PCB_RUNNING:
-            printf("RUNNING");
-            break;
-        case PCB_SUSPENDED:
-            printf("SUSPENDED");
-            break;
-        case PCB_TERMINATED:
-            printf("PCB_TERMINATED");
-            break;
-        default:
-            printf("UNKNOWN");
+           (int)p->pid, p->arrival_time, p->priority,
+           p->remaining_cpu_time);
+    switch (p->status)
+    {
+    case PCB_UNINITIALIZED:
+        printf("UNINITIALIZED");
+        break;
+    case PCB_INITIALIZED:
+        printf("INITIALIZED");
+        break;
+    case PCB_READY:
+        printf("READY");
+        break;
+    case PCB_RUNNING:
+        printf("RUNNING");
+        break;
+    case PCB_SUSPENDED:
+        printf("SUSPENDED");
+        break;
+    case PCB_TERMINATED:
+        printf("PCB_TERMINATED");
+        break;
+    default:
+        printf("UNKNOWN");
     }
     printf("\n");
-    
-    return p;     
+
+    return p;
 }
 
 /*******************************************************
@@ -157,6 +189,6 @@ PcbPtr printPcb(PcbPtr p)
  *    void
  ******************************************************/
 void printPcbHdr()
-{  
+{
     printf("    pid arrive  prior    cpu  status\n");
 }
