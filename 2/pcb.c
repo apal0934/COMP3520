@@ -121,6 +121,7 @@ PcbPtr suspendPcb(PcbPtr p)
 
     kill(p->pid, SIGTSTP);
     p->status = PCB_SUSPENDED;
+    waitpid(p->pid, NULL, WUNTRACED);
     return p;
 }
 
@@ -138,9 +139,10 @@ PcbPtr terminatePcb(PcbPtr p)
         fprintf(stderr, "ERROR: Can not terminate a NULL process\n");
         return NULL;
     }
-
     kill(p->pid, SIGINT);
     p->status = PCB_TERMINATED;
+    waitpid(p->pid, NULL, WUNTRACED);
+
     return p;
 }
 
